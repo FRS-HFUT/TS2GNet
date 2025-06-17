@@ -1,11 +1,9 @@
-# 完整代码，仅修改模块类名，保持逻辑与内容完全不变
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
-# —— Asymmetric Conv Block (ACB) —— #
+
 class ACB(nn.Module):
     def __init__(self, channels, kernel_size=3):
         super().__init__()
@@ -18,7 +16,7 @@ class ACB(nn.Module):
     def forward(self, x):
         return self.act(self.bn(self.conv_h(x) + self.conv_v(x)))
 
-# —— Layerwise Scaling Residual Connection (LSRC) —— #
+
 class LSRC(nn.Module):
     def __init__(self, channels, reduction=4):
         super().__init__()
@@ -35,7 +33,7 @@ class LSRC(nn.Module):
         scale = self.fc(y).unsqueeze(1)                     # [B, 1, C]
         return x * scale.expand_as(x)
 
-# —— Slice‐wise Enhanced Learning (SEL) —— #
+
 class SEL(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
@@ -48,7 +46,7 @@ class SEL(nn.Module):
         return sum(w * inp * (1 - s)
                    for w, inp, s in zip(gw, inputs, sw))
 
-# —— Dynamic Spatial Attention (DSA) —— #
+
 class DSA(nn.Module):
     def __init__(self, channel, patch_size):
         super().__init__()
@@ -72,7 +70,7 @@ class DSA(nn.Module):
         y = self.sigmoid(y)
         return x * y + x, y
 
-# —— Multiattention Module (MAM) —— #
+
 class MAM(nn.Module):
     def __init__(self, dim):
         super().__init__()
@@ -105,7 +103,7 @@ class MAM(nn.Module):
         k2 = (F.softmax(att, dim=-1) * v).view(B, C, H, W)
         return self.coeff1 * x + self.coeff2 * k2
 
-# —— MS2F: Multi‐Scale Spectral–Spatial Fusion —— #
+
 class MS2F(nn.Module):
     def __init__(self, channelNumber, patch_size):
         super().__init__()
@@ -136,7 +134,6 @@ class MS2F(nn.Module):
         out = torch.cat(fused, dim=1)
         return self.fusion_layer(out)
 
-# —— Multi‐Head Spectral Attention (MHSA) —— #
 class MHSA(nn.Module):
     def __init__(self, dim, heads=4, dim_head=96, dropout=0.1):
         super().__init__()
@@ -155,7 +152,6 @@ class MHSA(nn.Module):
         out   = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
 
-# —— LRTM: Lightweight Residual Transformer Module —— #
 class LRTM(nn.Module):
     def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout=0.1):
         super().__init__()
@@ -181,7 +177,6 @@ class LRTM(nn.Module):
             x = lsrc(x + y)
         return x
 
-# —— SE Block (Channel Squeeze‐Excitation) —— #
 class SE(nn.Module):
     def __init__(self, in_channels, reduction=4):
         super().__init__()
@@ -198,7 +193,6 @@ class SE(nn.Module):
         y = self.fc(y).view(b, c, 1, 1)
         return x * y.expand_as(x)
 
-# —— TS2FM: Temporal‐Spatial‐Spectral Fusion Module —— #
 class TS2FM(nn.Module):
     def __init__(self, dim=256, heads=4, dropout=0.1, num_frames=3):
         super().__init__()
@@ -244,7 +238,6 @@ class TS2FM(nn.Module):
         P_final = (P_fused * w_P).sum(dim=1)
         return torch.cat([p_final, P_final], dim=1)
 
-# —— 主网络 TS2GNet —— #
 class TS2GNet(nn.Module):
     def __init__(
         self,
@@ -268,14 +261,12 @@ class TS2GNet(nn.Module):
         self.gma = MS2F(channelNumber=self.band, patch_size=self.patch_size)
         self.se_block_patch = SE(self.band)
 
-        # Pixel 支路：ACB + Transformer (LSRC)
         self.acb_pixel = ACB(self.band)
         self.pixel_transformer = LRTM(
             dim=self.band, depth=2, heads=4, dim_head=16, mlp_dim=128, dropout=dropout
         )
         self.fc_pixel = nn.Linear(self.band, 256)
 
-        # Patch 支路卷积层
         self.conv31 = nn.Conv2d(32, 32, 7, padding=3, bias=False)
         self.bn31   = nn.BatchNorm2d(32)
         self.drop31 = nn.Dropout2d(dropout)
@@ -311,7 +302,6 @@ class TS2GNet(nn.Module):
         patch_feats, pixel_feats = [], []
 
         for t in range(T):
-            # Pixel 支路
             pix = pixelX[:, t]
             pix = pix.unsqueeze(-1).unsqueeze(-1)
             pix = self.acb_pixel(pix).squeeze(-1).squeeze(-1)
@@ -321,7 +311,6 @@ class TS2GNet(nn.Module):
             pix = self.dropout(pix)
             pixel_feats.append(pix)
 
-            # Patch 支路
             p = patchX[:, t]
             p = self.se_block_patch(p)
             p = self.gma(p)
