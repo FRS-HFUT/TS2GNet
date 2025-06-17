@@ -62,27 +62,24 @@ class SupConLoss(nn.Module):
         else:
             raise ValueError('Unknown mode: {}'.format(self.contrast_mode))
 
-        # compute logits
         anchor_dot_contrast = torch.div(
             torch.matmul(anchor_feature, contrast_feature.T),
             self.temperature)
 
-        # for numerical stability 特征屏蔽对角线上的值（对角线是自己*自己）
-        logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)  # 归一化后的向量，自己*自己是最大的
+        logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)  
         logits = anchor_dot_contrast - logits_max.detach()
 
         # tile mask
-        mask = mask.repeat(anchor_count, contrast_count)  # 复制生成全部的mask（24*24）-> (48*48)
+        mask = mask.repeat(anchor_count, contrast_count)  
 
         # mask-out self-contrast cases
-        # logits_mask 自己*自己为0，自己*别人为1
         logits_mask = torch.scatter(
             torch.ones_like(mask),
             1,
             torch.arange(batch_size * anchor_count).view(-1, 1).to(device),
             0
         )
-        mask = mask * logits_mask  # mask 自己*自己为0，自己*别人（同一类的）为1， 自己*别人（不同类）为0
+        mask = mask * logits_mask 
 
         # compute log_prob
         exp_logits = torch.exp(logits) * logits_mask + 0.00001
@@ -99,16 +96,12 @@ class SupConLoss(nn.Module):
 
 
 class ConstractiveLoss(nn.Module):
-    """计算一个特征矩阵中，两两向量的对比损失"""
 
     def __init__(self, margin=2.0):
         super(ConstractiveLoss, self).__init__()
         self.margin = margin
 
     def euclidean_dist(self, x, y):
-        """输入：[b1, c, w, n], [b2, c, w, n]
-           输出：[b1, b2]
-        计算两个矩阵中两两欧氏距离"""
         m, n = x.size(0), y.size(0)
         xx = torch.pow(x, 2).sum(1, keepdim=True).expand(m, n)
         # xx = torch.pow(x, 2)
@@ -127,15 +120,13 @@ class ConstractiveLoss(nn.Module):
         features = features.view(features.shape[0], -1)  # [b, -1]
         batch_size = features.shape[0]
 
-        distance = self.euclidean_dist(features, features)  # 计算自己和自己的欧式距离
+        distance = self.euclidean_dist(features, features)  
         labels = labels.contiguous().view(-1, 1)
-        mask = torch.eq(labels, labels.T).float().to(device)  # 同类为1，不同类为0
-        # 计算相同类别的损失
+        mask = torch.eq(labels, labels.T).float().to(device) 
         loss_sameClass = torch.pow(torch.mul(distance, mask), 2)
 
         mask_ = torch.ones(batch_size, batch_size).to(device)
-        mask_ = torch.sub(mask_, mask)  # 不同类为1，同类为0
-        # 计算不同类别的损失
+        mask_ = torch.sub(mask_, mask) 
         loss_diffClass_ = torch.pow(torch.clamp(self.margin - distance, min=0.0), 2)
         loss_diffClass = torch.mul(loss_diffClass_, mask_)
 
