@@ -32,10 +32,6 @@ setup_seed(14)
 code_start_time = datetime.datetime.now()  # 开始时间点
 print("程序运行开始时间：", code_start_time)
 
-# 数据路径
-
-"""------------------------设置参数结束-----------------------------"""
-
 def DrawResult(height, width, num_class, labels):
     palette = np.array([
         [37, 58, 150],
@@ -50,7 +46,7 @@ def DrawResult(height, width, num_class, labels):
         [123, 18, 20]
     ])
     palette = palette[:num_class]
-    palette = palette * 1.0 / 255  # 标准化到 0-1 范围
+    palette = palette * 1.0 / 255
     X_result = np.zeros((labels.shape[0], 3))
 
     for i in range(1, num_class + 1):
@@ -62,20 +58,7 @@ def DrawResult(height, width, num_class, labels):
     X_result = np.reshape(X_result, (height, width, 3))
     return X_result  #
 
-def Draw(label_image, dataset_name, model_name, num_classes):
-    height, width = label_image.shape
-    # 直接将 label_image.flatten() 输入 DrawResult
-    img = DrawResult(height, width, num_classes, label_image.flatten())
 
-    # 因为没有无效标签，不需要对 img 进行 mask 替换
-
-    img_uint8 = (img * 255).astype(np.uint8)
-    image_pil = Image.fromarray(img_uint8)
-    png_path = f"{dataset_name}_{model_name}.png"
-    tif_path = f"{dataset_name}_{model_name}.tif"
-    image_pil.save(png_path, format='PNG', dpi=(300, 300))
-    image_pil.save(tif_path, format='TIFF', dpi=(300, 300))
-    print(f"Saved classification results as {png_path} and {tif_path}")
 def padWithZeros(img, pad_width):
     return np.pad(img, ((pad_width, pad_width), (pad_width, pad_width), (0, 0)), 'constant')
 # load data
@@ -83,8 +66,8 @@ DataPath = r'G:\NET\TS2GNet\stacking\stacking_10m.mat'
 TRPath = r'G:\NET\TS2GNet\stacking\label_train_all.mat'
 TSPath = r'G:\NET\TS2GNet\stacking\label_test_all.mat'
 
-patchsize = 16# 例如该值取24，则patch块最后的形状是25×25 [19,23,27,31,35]
-batchsize = 16  # 64
+patchsize = 16
+batchsize = 16  
 EPOCH = 500
 LR = 1e-4
 Data = io.loadmat(DataPath)
@@ -107,7 +90,6 @@ pad_width = int(pad_width)
 [m, n, l] = np.shape(Data)  #
 class_number = np.max(TsLabel)
 
-# 数据归一化
 for i in range(l):
     Data[:, :, i] = (Data[:, :, i] - Data[:, :, i].min()) / (Data[:, :, i].max() - Data[:, :, i].min())
 x = Data
@@ -213,7 +195,17 @@ for epoch in range(EPOCH):
     scheduler.step()
 
 end_training_time = datetime.datetime.now()
+def Draw(label_image, dataset_name, model_name, num_classes):
+    height, width = label_image.shape
+    img = DrawResult(height, width, num_classes, label_image.flatten())
 
+    img_uint8 = (img * 255).astype(np.uint8)
+    image_pil = Image.fromarray(img_uint8)
+    png_path = f"{dataset_name}_{model_name}.png"
+    tif_path = f"{dataset_name}_{model_name}.tif"
+    image_pil.save(png_path, format='PNG', dpi=(300, 300))
+    image_pil.save(tif_path, format='TIFF', dpi=(300, 300))
+    print(f"Saved classification results as {png_path} and {tif_path}")
 cnn.load_state_dict(torch.load(r'G:\NET\TS2GNet\best.pkl'))
 cnn.eval()
 
@@ -276,8 +268,8 @@ results = metric.metrics(pred_y, TestLabel, n_classes=len(Classes))
 print('%.2f' % results["Accuracy"], "The OA")
 print('%.2f' % results["Kappa"], "The Kappa")
 
-label_image = np.full((m, n), -1, dtype=np.int32)  # 初始化为-1，表示无标签
-label_image[ind1, ind2] = pred_y.numpy() + 1  # 假设类别从1开始
+label_image = np.full((m, n), -1, dtype=np.int32)
+label_image[ind1, ind2] = pred_y.numpy() + 1
 
 code_end_time = datetime.datetime.now()
 print("程序运行结束时间：", code_end_time)
